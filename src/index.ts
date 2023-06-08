@@ -21,7 +21,17 @@ export async function vibrant(req: Request, res: Response) {
   // get color palette from image at url
   const palette = await vibrant.getPalette();
 
-  res.send(palette.map);
+  // map palette to desired format
+  const mappedPalette = Object.keys(palette).map((key) => {
+    const swatch = palette[key];
+    return {
+      key: key,
+      hex: swatch.hex,
+      population: swatch.population,
+    };
+  });
+
+  res.send(mappedPalette);
 }
 
 /**

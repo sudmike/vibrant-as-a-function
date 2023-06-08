@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
+import Vibrant from 'node-vibrant';
 
-export function vibrant(req: Request, res: Response) {
+export async function vibrant(req: Request, res: Response) {
   const imageUrl = req.body.url;
 
   // check that url can be extracted from body
@@ -15,8 +16,12 @@ export function vibrant(req: Request, res: Response) {
     return;
   }
 
-  // ... get color from image at url
-  res.send('Success!');
+  const vibrant = new Vibrant(imageUrl);
+
+  // get color palette from image at url
+  const palette = await vibrant.getPalette();
+
+  res.send(palette.map);
 }
 
 /**

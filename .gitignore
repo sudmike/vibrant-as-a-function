@@ -1,0 +1,9 @@
+# IDE
+.idea
+*.iml
+
+# node modules
+node_modules
+
+# output
+build

@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import Vibrant from 'node-vibrant';
+import axios from 'axios';
+import sharp from 'sharp';
 
 export async function vibrant(req: Request, res: Response) {
   const imageUrl = req.body.url;
@@ -16,10 +18,27 @@ export async function vibrant(req: Request, res: Response) {
     return;
   }
 
-  const vibrant = new Vibrant(imageUrl);
+  // load image at url into buffer
+  let imageBuffer = await getImageBufferFromUrl(imageUrl);
 
-  // get color palette from image at url
-  const palette = await vibrant.getPalette();
+  // load image metadata and resize if too large to be more performant
+  const maxDimension = 500;
+  const imageWidth = (await sharp(imageBuffer).metadata()).width;
+  const imageHeight = (await sharp(imageBuffer).metadata()).height;
+  if (Math.max(imageWidth, imageHeight) > maxDimension) {
+    // calculate new scale
+    const downsizeFactor = maxDimension / Math.max(imageWidth, imageHeight);
+    const imageWidthNew = Math.floor(imageWidth * downsizeFactor);
+    const imageHeightNew = Math.floor(imageHeight * downsizeFactor);
+
+    // resize image buffer
+    imageBuffer = await sharp(imageBuffer)
+      .resize(imageWidthNew, imageHeightNew)
+      .toBuffer();
+  }
+
+  // get color palette from image buffer
+  const palette = await new Vibrant(imageBuffer).getPalette();
 
   // map palette to desired format
   const mappedPalette = Object.keys(palette).map((key) => {
@@ -31,6 +50,7 @@ export async function vibrant(req: Request, res: Response) {
     };
   });
 
+  // return color data
   res.send(mappedPalette);
 }
 
@@ -43,4 +63,15 @@ function checkUrlFormat(url: string): boolean {
     'https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)',
   );
   return urlPattern.test(url);
+}
+
+/**
+ * Gets image from a URL and returns an image buffer containing the image.
+ * @param url URL of the image.
+ */
+async function getImageBufferFromUrl(url: string): Promise<Buffer> {
+  const response = await axios.get<ArrayBuffer>(url, {
+    responseType: 'arraybuffer',
+  });
+  return Buffer.from(response.data);
 }

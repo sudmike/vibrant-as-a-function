@@ -86,5 +86,3 @@ gcloud config set project PROJECTNAME
 ```bash
 gcloud functions deploy NAME --region REGION --entry-point vibrant --allow-unauthenticated --trigger-http --runtime nodejs16
 ```
-
-> The deployment has not been tested.

@@ -43,11 +43,18 @@ export async function vibrant(req: Request, res: Response) {
   // map palette to desired format
   const mappedPalette = Object.keys(palette).map((key) => {
     const swatch = palette[key];
-    return {
-      key: key,
-      hex: swatch.hex,
-      population: swatch.population,
-    };
+    if (swatch)
+      return {
+        key: key,
+        hex: swatch.hex,
+        population: swatch.population,
+      };
+    else
+      return {
+        key: key,
+        hex: '#ffffff',
+        population: 0,
+      };
   });
 
   // return color data

@@ -1,18 +1,15 @@
 import { Request, Response } from 'express';
 import Vibrant from 'node-vibrant';
 import axios from 'axios';
-import sharp from 'sharp';
+import sharp, { Sharp } from 'sharp';
 
 export async function vibrant(req: Request, res: Response) {
   // load image from request into buffer
-  let image = await getImageFromRequest(req, res);
+  const image = await getImageFromRequest(req, res);
   if (!image) return;
 
-  // resize the image if too large to be more performant
-  image = await downsizeImage(image);
-
   // get color palette from image buffer
-  const palette = await new Vibrant(image).getPalette();
+  const palette = await new Vibrant(await image.toBuffer()).getPalette();
 
   // map palette to desired format
   const mappedPalette = Object.keys(palette).map((key) => {
@@ -35,6 +32,19 @@ export async function vibrant(req: Request, res: Response) {
   res.send(mappedPalette);
 }
 
+export async function preload(req: Request, res: Response) {
+  // load image from request into buffer
+  let image = await getImageFromRequest(req, res);
+  if (!image) return;
+
+  // generate blurred and smaller image
+  image = await generatePreloadedPicture(image);
+
+  // set the response content-type header and return the modified image as a buffer
+  res.type(`image/${(await image.metadata()).format.toString()}`);
+  res.send(await image.toBuffer());
+}
+
 /**
  * Gets image from HTTP request or triggers a BadRequest response if nothing can be extracted.
  * @param req HTTP request that contains the image url.
@@ -43,7 +53,7 @@ export async function vibrant(req: Request, res: Response) {
 async function getImageFromRequest(
   req: Request,
   res: Response,
-): Promise<Buffer | null> {
+): Promise<Sharp | null> {
   // check that url can be extracted from body
   if (!req.body.url) {
     res.status(400).send('Body is missing property "url".');
@@ -58,12 +68,15 @@ async function getImageFromRequest(
     return null;
   }
 
-  // get and return image at url
   try {
+    // get image at url
     const response = await axios.get<ArrayBuffer>(req.body.url, {
       responseType: 'arraybuffer',
     });
-    return Buffer.from(response.data);
+    const image = sharp(Buffer.from(response.data));
+
+    // return downsized image
+    return await downsizeImage(image);
   } catch (e) {
     res.status(500).send(`Failed to get image at url ${req.body.url}.`);
     return null;
@@ -73,15 +86,13 @@ async function getImageFromRequest(
 /**
  * Downsize image if it is large.
  * @param image Image buffer that should be resized.
- * @param resizeValue Value that the image is downsized to. Eg if set to 1000 and the images dimensions are 800x2000, the image will be rescaled to 400x1000.
+ * @param resizeValue Value that the image is downsized to. Eg if set to 1000 and the dimensions are 800x2000, the new dimensions will be 400x1000.
  */
-async function downsizeImage(
-  image: Buffer,
-  resizeValue = 500,
-): Promise<Buffer> {
+async function downsizeImage(image: Sharp, resizeValue = 500): Promise<Sharp> {
   // load image metadata
-  const imageWidth = (await sharp(image).metadata()).width;
-  const imageHeight = (await sharp(image).metadata()).height;
+  const metadata = await image.metadata();
+  const imageWidth = metadata.width;
+  const imageHeight = metadata.height;
 
   // resize if necessary
   if (Math.max(imageWidth, imageHeight) > resizeValue) {
@@ -89,12 +100,10 @@ async function downsizeImage(
     const downsizeFactor = resizeValue / Math.max(imageWidth, imageHeight);
 
     // resize image buffer
-    image = await sharp(image)
-      .resize(
-        Math.floor(imageWidth * downsizeFactor),
-        Math.floor(imageHeight * downsizeFactor),
-      )
-      .toBuffer();
+    image = image.resize(
+      Math.floor(imageWidth * downsizeFactor),
+      Math.floor(imageHeight * downsizeFactor),
+    );
   }
 
   return image;
@@ -109,4 +118,36 @@ function checkUrlFormat(url: string): boolean {
     'https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)',
   );
   return urlPattern.test(url);
+}
+
+/**
+ * Downsizes and blurs image.
+ * Image is passed by reference and will be modified!
+ * @param image Jimp image to be modified.
+ * @param reduceFactor Factor to reduce size by. Eg if set to 8 and the dimensions are 800x400, the new dimensions will be 100x50
+ */
+async function generatePreloadedPicture(
+  image: Sharp,
+  reduceFactor = 5,
+): Promise<Sharp> {
+  // resize to a lower resolution
+  image.resize(
+    Math.floor((await image.metadata()).width / reduceFactor),
+    Math.floor((await image.metadata()).height / reduceFactor),
+  );
+
+  // calculate blur effect
+  let blurFactor = Math.ceil(
+    Math.min(
+      (await image.metadata()).width / reduceFactor,
+      (await image.metadata()).height / reduceFactor,
+    ) / 100,
+  );
+
+  // ensure that blur effect does not exceed min or max
+  if (blurFactor > 1000) blurFactor = 1000;
+  else if (blurFactor < 0.3) blurFactor = 0.3;
+
+  // apply blur
+  return image.blur(blurFactor);
 }

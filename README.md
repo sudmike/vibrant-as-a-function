@@ -1,6 +1,6 @@
-# Preview as a Function
+# Image Preview Cloud Functions
 
-This repository contains two Google Cloud Functions.
+This repository contains two Google Cloud Functions that are useful for creating previews of images.
 
 ## Function Vibrant
 

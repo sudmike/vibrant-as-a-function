@@ -2,7 +2,8 @@
   "scripts": {
     "gcp-build": "npm run build",
     "build": "tsc",
-    "start": "npm run build && npx @google-cloud/functions-framework --target=vibrant"
+    "start:vibrant": "npm run build && npx @google-cloud/functions-framework --target=vibrant",
+    "start:preload": "npm run build && npx @google-cloud/functions-framework --target=preload"
   },
   "main": "build/index.js",
   "dependencies": {

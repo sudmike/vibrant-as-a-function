@@ -1,12 +1,16 @@
-# Vibrant as a Function
+# Preview as a Function
 
-This repository contains code to run an abstraction of [node-vibrant](https://github.com/Vibrant-Colors/node-vibrant) over Google Cloud Functions.  
+This repository contains two Google Cloud Functions.
+
+## Function Vibrant
+
+This function provides an abstraction of [node-vibrant](https://github.com/Vibrant-Colors/node-vibrant).
 This enables any service to extract prominent colors from an image.
 
-There is a single function that is invoked through a HTTP call, which expects a URL to an image in the body and returns the full palette
-of [Swatches](https://github.com/Vibrant-Colors/node-vibrant#vibrantswatch).
+### Usage
 
-## Usage
+This function expects a URL to an image in the body and returns the full palette
+of [Swatches](https://github.com/Vibrant-Colors/node-vibrant#vibrantswatch).
 
 The invocation of the hosted function will look similar to this:
 
@@ -51,9 +55,25 @@ The response will look like this:
 ]
 ```
 
+## Function preload
+
+This function provides a way to get a lower resolution, blurred image that can be loaded as a placeholder.
+
+### Usage
+
+This function expects a URL to an image in the body and returns a smaller blurred version of the image.
+
+The invocation of the hosted function will look similar to this:
+
+```bash
+curl -X GET <url> -d '{"url": "https://picsum.photos/id/85/640/387"}'
+```
+
+The response will be a lower resolution version of that image.
+
 ## Setup locally
 
-In case you wish to make changes to the function, you can run it on your local machine.
+In case you wish to make changes to the functions, you can run them on your local machine.
 
 #### Install npm packages
 
@@ -61,10 +81,14 @@ In case you wish to make changes to the function, you can run it on your local m
 npm install
 ```
 
-#### Run the app
+#### Run the functions
 
 ```bash
-npm run start
+npm run start:vibrant
+```
+
+```bash
+npm run start:preload
 ```
 
 ## Manual deployment
@@ -84,5 +108,9 @@ gcloud config set project PROJECTNAME
 #### Deployment
 
 ```bash
-gcloud functions deploy NAME --region REGION --entry-point vibrant --allow-unauthenticated --trigger-http --runtime nodejs16
+gcloud functions deploy NAME --entry-point vibrant --region REGION --allow-unauthenticated --trigger-http --runtime nodejs16
+```
+
+```bash
+gcloud functions deploy NAME --entry-point preload --region REGION --allow-unauthenticated --trigger-http --runtime nodejs16
 ```
